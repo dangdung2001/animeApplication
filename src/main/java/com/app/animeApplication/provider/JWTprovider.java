@@ -19,6 +19,7 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.InvalidKeyException;
@@ -31,25 +32,39 @@ public class JWTprovider {
 
     private static final String AUTHORITIES_KEY = "auth";
 
-    @Value("${spring.security.authentication.jwt.validity}")
-    private long tokenValidityInMilliSeconds;
+    @Value("${spring.security.authentication.jwt.AccessTokenValidity}")
+    private long AccessTokenValidityMs;
+    
+    @Value("${spring.security.authentication.jwt.RefreshTokenValidity}")
+    private long RefreshTokenValidityMs;
 
     @Value("${spring.security.authentication.jwt.secret}")
     private String secretKey;
 
     @SuppressWarnings("deprecation")
-	public String createToken(Authentication authentication) throws InvalidKeyException{
-
+	public String createToken(Authentication authentication , long tokenValidityInMillis) throws InvalidKeyException{
+    	
         String authorities = authentication.getAuthorities().stream().map(authority -> authority.getAuthority()).collect(Collectors.joining(","));
 
         ZonedDateTime now = ZonedDateTime.now();
-        ZonedDateTime expirationDateTime = now.plus(this.tokenValidityInMilliSeconds, ChronoUnit.MILLIS);
+        ZonedDateTime expirationDateTime = now.plus(tokenValidityInMillis, ChronoUnit.MILLIS);
 
         Date issueDate = Date.from(now.toInstant());
         Date expirationDate = Date.from(expirationDateTime.toInstant());
 
         return Jwts.builder().setSubject(authentication.getName()).claim(AUTHORITIES_KEY, authorities)
                     .signWith(SignatureAlgorithm.HS256, this.secretKey).setIssuedAt(issueDate).setExpiration(expirationDate).compact();
+    }
+    
+    public String createAccessToken(Authentication authentication) throws InvalidKeyException{
+	
+    	return createToken(authentication , AccessTokenValidityMs);
+    }
+    
+    
+    public String createRefreshToken(Authentication authentication) throws InvalidKeyException{
+    	
+    	return createToken(authentication, RefreshTokenValidityMs);
     }
 
     public Authentication getAuthentication(String token) {
@@ -69,18 +84,21 @@ public class JWTprovider {
         return new UsernamePasswordAuthenticationToken(principal, "", authorities);
     }
 
-    public boolean validateToken(String authToken) {
+    @SuppressWarnings("deprecation")
+	public void validateToken(String authToken) {
 
-        try {
             Jwts.parser().setSigningKey(this.secretKey).parseClaimsJws(authToken);
-            LOGGER.info("jwt parser in provider : succes!");
-            return true;
-        } catch (Exception e) {
-            LOGGER.info("Invalid JWT signature: " + e.getMessage());
-            LOGGER.debug("Exception " + e.getMessage(), e);
-            return false;
         }
-    }
+     }
+    
+    
+    
+
+
+
+
+
+
 
 	
-}
+

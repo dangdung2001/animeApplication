@@ -25,15 +25,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class googleAuthService {
 
 	private final UserService userService;
-	private final AuthService authService;
 	private final JWTprovider jwtProvider;
 	private final UserMapper userMapper;
 	private final JwtResponseMapper jwtRespMapper;
 
-	public googleAuthService(UserService userService, AuthService authService, JWTprovider jwtProvider,
+	public googleAuthService(UserService userService, JWTprovider jwtProvider,
 			UserMapper userMapper, JwtResponseMapper jwtRespMapper) {
 		this.userService = userService;
-		this.authService = authService;
 		this.jwtProvider = jwtProvider;
 		this.userMapper = userMapper;
 		this.jwtRespMapper = jwtRespMapper;
@@ -49,7 +47,7 @@ public class googleAuthService {
 			Map<String, String> UserInfo = new ObjectMapper().readValue(decodedJson, Map.class);
 
 			String randomPassword = UUID.randomUUID().toString();
-			String hashedPassword = this.userService.generatePassword(randomPassword);
+			String hashedPassword = this.userMapper.generatePassword(randomPassword);
 
 			registryDTO registryDTO = this.userMapper.ToRegistryDTO(UserInfo.get("email"), hashedPassword,
 					UserInfo.get("avatar"));
@@ -62,10 +60,10 @@ public class googleAuthService {
 
 			Authentication auth = new UsernamePasswordAuthenticationToken(user, "", user.getAuthorities());
 
-			String jwt = this.jwtProvider.createToken(auth);
+			String jwt = this.jwtProvider.createAccessToken(auth);
 
 			if (jwt != null) {
-				JwtResponse jwtResp = this.jwtRespMapper.toJwtResponse(jwt, user.getEmail());
+				JwtResponse jwtResp = this.jwtRespMapper.toJwtResponse(jwt, this.userMapper.toUserDTO(user));
 				return jwtResp;
 			}
 		}

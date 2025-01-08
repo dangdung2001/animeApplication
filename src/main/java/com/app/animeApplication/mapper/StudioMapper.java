@@ -9,15 +9,7 @@ import com.app.animeApplication.payloads.StudioDTO;
 @Component
 public class StudioMapper {
 
-	public JwtResponse toJwtResponse(String jwt, String email) {
-		
-		JwtResponse jwtresp = new JwtResponse();
-		jwtresp.setEmail(email);
-		jwtresp.setJwt(jwt);
-		
-		return jwtresp;
-	}
-
+	
 	public Studio toStudioEntity(StudioDTO studioDTO) {
 		
 		Studio studio = new Studio();

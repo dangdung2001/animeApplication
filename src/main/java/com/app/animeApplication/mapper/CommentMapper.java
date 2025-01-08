@@ -18,15 +18,7 @@ public class CommentMapper {
 	@Autowired
 	private UserMapper userMapper;
 	
-	public JwtResponse toJwtResponse(String jwt, String email) {
-		
-		JwtResponse jwtresp = new JwtResponse();
-		jwtresp.setEmail(email);
-		jwtresp.setJwt(jwt);
-		
-		return jwtresp;
-	}
-
+	
 	public Comment toCommentEntity(CommentDTO commentDTO) {
 		
 		Movies movie = this.movieMapper.ToMovieEntity(commentDTO.getSimpleMovieDTO());

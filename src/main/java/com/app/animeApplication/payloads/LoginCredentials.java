@@ -14,4 +14,6 @@ public class LoginCredentials {
 	
 	@NotNull
 	private String password;
+	
+	private boolean remember;
 }

@@ -18,6 +18,7 @@ import com.app.animeApplication.config.appConstants;
 import com.app.animeApplication.entity.Role;
 import com.app.animeApplication.entity.User;
 import com.app.animeApplication.exception.UserNotFoundException;
+import com.app.animeApplication.mapper.UserMapper;
 import com.app.animeApplication.payloads.CustomUserDetails;
 import com.app.animeApplication.payloads.UserDTO;
 import com.app.animeApplication.reposiroty.UserRepository;
@@ -30,12 +31,12 @@ public class UserService implements UserDetailsService {
 	private static final Logger LOGGER = LoggerFactory.getLogger(UserService.class);
 
 	private UserRepository userRepository;
+	
+	private UserMapper userMapper;
 
-	private PasswordEncoder passwordEncoder;
-
-	public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+	public UserService(UserRepository userRepository, UserMapper userMapper) {
 		this.userRepository = userRepository;
-		this.passwordEncoder = passwordEncoder;
+		this.userMapper = userMapper;
 	}
 
 	public User registryUser(User user) {
@@ -43,8 +44,22 @@ public class UserService implements UserDetailsService {
 		return this.userRepository.save(user);
 	}
 
-	public User findById(Long userId) {
-		return this.userRepository.findById(userId).get();
+	public UserDTO findById(Long userId) {
+		
+		User user = this.userRepository.findById(userId).orElseGet(null);
+		if(user != null) {
+			return this.userMapper.toUserDTO(user);
+		}
+		return null;
+	}
+	
+	public UserDTO findByEmail(String email) {
+		
+		User user = this.userRepository.finduserByUsername(email);
+		if(user != null) {
+			return this.userMapper.toUserDTO(user);
+		}
+		return null;
 	}
 
 	public void deleteById(Long userId) {
@@ -108,23 +123,6 @@ public class UserService implements UserDetailsService {
 		return userdetails;
 	}
 
-	public Role assignRole(User user, String role) {
-
-		Role roles = new Role();
-
-		if (role.equals(appConstants.USER)) {
-			roles.setRoleId(1);
-			roles.setRoleName(role);
-		} else if (role.equals(appConstants.ADMIN)) {
-			roles.setRoleId(2);
-			roles.setRoleName(role);
-		}
-
-		return roles;
-	}
-
-	public String generatePassword(String password) {
-		return passwordEncoder.encode(password);
-	}
+	
 
 }

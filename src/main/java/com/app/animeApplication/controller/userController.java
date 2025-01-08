@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.app.animeApplication.entity.User;
 import com.app.animeApplication.exception.UserNotFoundException;
+import com.app.animeApplication.mapper.UserMapper;
 import com.app.animeApplication.payloads.UserDTO;
 import com.app.animeApplication.services.UserService;
 
@@ -32,14 +34,31 @@ public class userController {
 	
 	private final UserService userService;
 	
+	private final UserMapper userMapper;
 	
-	public userController(UserService userService) {
+	
+	public userController(UserService userService, UserMapper userMapper) {
 		this.userService = userService;
+		this.userMapper = userMapper;
 	}
 
 	@GetMapping("/{userId}")
-	public User HandlerGetUser(@PathVariable Long userId) {
+	public UserDTO HandlerGetUserByID(@PathVariable Long userId) {
+		
 		return this.userService.findById(userId);
+	}
+	
+	@GetMapping("/get")
+	public ResponseEntity<?> HandlerGetUser(HttpServletRequest request) {
+		
+		Authentication auth = (Authentication) request.getUserPrincipal();
+		
+		if(auth != null && auth.getName() != null) {
+			UserDTO userdto = this.userService.findByEmail(auth.getName());
+			return ResponseEntity.ok(userdto);
+		}
+		
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Authentication User Invalid");
 	}
 	
 	@PutMapping("/update")

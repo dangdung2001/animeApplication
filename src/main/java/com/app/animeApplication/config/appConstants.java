@@ -7,7 +7,7 @@ public class appConstants {
 //	url
 
 	public static final String[] PUBLIC_URLS = { "/", "/api/public/**", "/login/oauth2/code/google",
-			"/v3/api-docs/**", "/swagger-ui/**" };
+			"/v3/api-docs/**", "/swagger-ui/**"};
 
 	public static final String[] USER_URLS = { "/api/users/**" };
 
