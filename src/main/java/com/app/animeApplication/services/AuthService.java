@@ -1,5 +1,6 @@
 package com.app.animeApplication.services;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -7,6 +8,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Component;
 import com.app.animeApplication.config.appConstants;
 import com.app.animeApplication.entity.RefreshToken;
 import com.app.animeApplication.entity.User;
+import com.app.animeApplication.entity.Verification_code;
 import com.app.animeApplication.mapper.JwtResponseMapper;
 import com.app.animeApplication.mapper.RefreshTokenMapper;
 import com.app.animeApplication.mapper.UserMapper;
@@ -31,6 +35,7 @@ import com.app.animeApplication.provider.JWTprovider;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import jakarta.mail.MessagingException;
 
 @Component
 public class AuthService {
@@ -58,6 +63,15 @@ public class AuthService {
 	@Autowired
 	private RefreshTokenMapper refreshTokenMapper;
 
+	@Autowired
+	private Verify_codeService verify_codeService;
+
+	@Autowired
+	private EmailService emailService;
+
+	@Autowired
+	private CaptchaService captchaService;
+
 	public JwtResponse handlerLogin(LoginCredentials credential) {
 
 		JwtResponse jwtResp = authenticateAndGenerateToken(credential.getEmail(), credential.getPassword(),
@@ -67,14 +81,58 @@ public class AuthService {
 
 	}
 
-	public JwtResponse handlerRegistry(registryDTO registryDTO) {
-		User user = mapRegistryToUser(registryDTO);
+	public ResponseEntity<?> handleRegistry(registryDTO registryDTO) {
+		Verification_code verificationCode = verify_codeService.getVerifyCodeByMail(registryDTO.getEmail());
+		
+		ResponseEntity<?> isVerifiCode = isVerificationCodeValid(verificationCode, registryDTO.getCode());
+		
+		if(isVerifiCode != null) {
+			return isVerifiCode;
+		}
 
-		LOGGER.info("principal registry : " + user);
+		User userMap = mapRegistryToUser(registryDTO);
 
-		this.userService.registryUser(user);
+		User SavedUser = userService.registryUser(userMap);
+		LOGGER.info("Principal registry: {}", SavedUser);
 
-		return createJwtResponse(user);
+		return ResponseEntity.status(HttpStatus.CREATED).body(createJwtResponse(SavedUser));
+	}
+
+	public ResponseEntity<?> handleSendCodeMail(String mail) {
+
+		UserDTO user = this.userService.findByEmail(mail);
+
+		if (user != null) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).body("Previously Registered Mail");
+		}
+		Verification_code verification_code = this.verify_codeService.getVerifyCodeByMail(mail);
+		if (verification_code != null) {
+
+			if (!LocalDateTime.now().isBefore(verification_code.getExpires_at())) {
+				return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Code Has Been Sent");
+			}
+			
+		}
+
+		try {
+			Long code = emailService.sendEmailMIME(mail, "Email Authentication", null);
+
+			this.verify_codeService.saveVerifyCodeByMail(mail, String.valueOf(code));
+			return ResponseEntity.status(HttpStatus.CREATED).body("Code Sended");
+		} catch (MessagingException e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Send Mail Faild");
+		}
+
+	}
+
+	public ResponseEntity<?> handleVerifyCaptcha(String captchaToken) {
+
+		if (this.captchaService.validateCaptcha(captchaToken)) {
+			return ResponseEntity.ok("Captcha Is Valid");
+		}
+
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Captcha Invalid");
 	}
 
 	public JwtResponse handleRefreshToken(String AccessToken) {
@@ -85,12 +143,28 @@ public class AuthService {
 			return buildJwtResponse(AccessToken);
 
 		} catch (ExpiredJwtException e) {
-			
+
 			return handleExpiredToken(e);
 		} catch (JwtException e) {
 			LOGGER.error("Invalid JWT token: {}", e.getMessage(), e);
 		} catch (Exception e) {
 			LOGGER.error("Error handling refresh token: {}", e.getMessage(), e);
+		}
+		return null;
+	}
+
+	private ResponseEntity<?> isVerificationCodeValid(Verification_code verificationCode, String providedCode) {
+		if (verificationCode == null) {
+			return ResponseEntity.badRequest().body("Verification code not found for the provided email.");
+		}
+
+		boolean isCodeExpired = verificationCode.getExpires_at().isBefore(LocalDateTime.now());
+		if (isCodeExpired) {
+			return ResponseEntity.badRequest().body("Verification code has expired.");
+		}
+
+		if(!verificationCode.getCode().equals(providedCode)) {
+			return ResponseEntity.badRequest().body("Verification Code is not match.");
 		}
 		return null;
 	}
@@ -204,7 +278,7 @@ public class AuthService {
 			LOGGER.error("Error handling refresh token: {}", e2.getMessage(), e2);
 			return null;
 		}
-		
+
 	}
 
 	private List<GrantedAuthority> extractAuthorities(Claims claims) {

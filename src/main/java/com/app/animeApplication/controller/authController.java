@@ -82,30 +82,20 @@ public class authController {
 	@PostMapping("/register")
 	public ResponseEntity<?> HandlerRegistry(@Valid @RequestBody registryDTO registryDTO) {
 
-		JwtResponse jwtResp = this.authService.handlerRegistry(registryDTO);
-
-		if (jwtResp != null) {
-
-			return ResponseEntity.ok(jwtResp);
-		}
-		return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body("registry faild!");
+		return this.authService.handleRegistry(registryDTO);
 	}
 
 	@GetMapping("/email/send/{email}")
 	public ResponseEntity<?> sendEmail(@Valid @PathVariable String email) throws MessagingException {
 
-		try {
-			Long code = emailService.sendEmailMIME(email, "Email Authentication", null);
+		return this.authService.handleSendCodeMail(email);
+	}
 
-			return ResponseEntity.ok(code);
+	@PostMapping("/capcha")
+	public ResponseEntity<?> handleCapche(@RequestBody(required = true) Map<String, String> captcha) {
 
-		} catch (Exception e) {
-
-			LOGGER.error("Send mail : " + e.getMessage());
-
-		}
-
-		return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body("Send Code MAil Faild!");
+		LOGGER.info(captcha.get("token"));
+		return this.authService.handleVerifyCaptcha(captcha.get("token"));
 	}
 
 	@PostMapping("/refresh-token")

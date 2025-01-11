@@ -12,8 +12,14 @@ public class registryDTO {
 	@NotNull
 	private String password;
 	
+	@NotNull
 	private String name;
 	
+	@NotNull
 	private String avatar;
+	
+	@NotNull
+	private String code;
+	
 	
 }
